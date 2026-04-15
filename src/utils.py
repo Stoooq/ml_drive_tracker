@@ -1,9 +1,8 @@
 import matplotlib.pyplot as plt
 import torch
-import torchvision.transforms as transforms
 import torchvision.utils as vutils
-from PIL import Image
 from torch.utils.data import Dataset
+from torchvision import transforms
 from tqdm import tqdm
 
 
@@ -85,7 +84,7 @@ def get_model_classes_from_weights_meta(weights_obj=None):
         num_classes = len(class_names)
 
         print(
-            f"Model is configured for {num_classes} classes based on Weights Metadata. These classes are:\n"
+            f"Model is configured for {num_classes} classes based on Weights Metadata. These classes are:\n",
         )
 
         return num_classes, class_names
@@ -106,20 +105,17 @@ def show_image_tensor(img_tensor: torch.Tensor, title: str = "Wykryte obiekty"):
 
 def detect_and_draw_bboxes(
     model,
-    image_path,
+    image_tensor,
     object_indices,
     labels,
     bbox_colors,
     threshold,
     bbox_width=3,
 ):
-    pil_image = Image.open(image_path).convert("RGB")
-    transform_to_tensor = transforms.Compose([transforms.ToTensor()])
-    tensor_image_batch = transform_to_tensor(pil_image).unsqueeze(0)
-    result_image_tensor = (tensor_image_batch.squeeze(0) * 255).byte()
+    result_image_tensor = (image_tensor.squeeze(0) * 255).byte()
 
     with torch.no_grad():
-        prediction = model(tensor_image_batch)[0]
+        prediction = model(image_tensor)[0]
 
     all_boxes_to_draw = []
     all_labels_to_draw = []
@@ -147,7 +143,7 @@ def detect_and_draw_bboxes(
         )
     else:
         print(
-            f"No objects from the list {labels} were found with a confidence score above {threshold}.\n"
+            f"No objects from the list {labels} were found with a confidence score above {threshold}.\n",
         )
 
-    return result_image_tensor
+    return result_image_tensor, all_boxes_to_draw, all_labels_to_draw
