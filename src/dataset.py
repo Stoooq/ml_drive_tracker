@@ -7,9 +7,10 @@ from torch.utils.data import Dataset
 
 
 class Bdd100kDataset(Dataset):
-    def __init__(self, root_dir: str, split: str = "train"):
+    def __init__(self, root_dir: str, split: str = "train", transform=None):
         self.root_dir = root_dir
         self.split = split
+        self.transform = transform
 
         self.images_dir = Path(f"{root_dir}/bdd100k/bdd100k/images/10k/{split}")
         self.labels_path = Path(
@@ -32,6 +33,9 @@ class Bdd100kDataset(Dataset):
 
         image_path = Path(f"{self.images_dir}/{image_name}")
         image = self.retrieve_image(image_path)
+
+        if self.transform is not None:
+            image = self.transform(image)
 
         boxes, labels = self.retrieve_boxes(label)
 
