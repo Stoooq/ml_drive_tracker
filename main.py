@@ -4,7 +4,7 @@ import cv2 as cv
 import torchvision.models as tv_models
 from torchvision import transforms
 
-from src.data_manager import DataManager
+from data.data_manager import DataManager
 from src.utils import (
     detect_and_draw_bboxes,
     get_model_classes_from_weights_meta,

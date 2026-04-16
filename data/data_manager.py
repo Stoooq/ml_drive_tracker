@@ -2,7 +2,7 @@ from pathlib import Path
 
 from torch.utils.data import DataLoader
 
-from src.dataset import Bdd100kDataset
+from ml.dataset import Bdd100kDataset
 from src.utils import collate_fn, get_transforms
 
 

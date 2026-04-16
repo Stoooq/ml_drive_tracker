@@ -1,9 +1,6 @@
 import matplotlib.pyplot as plt
 import torch
 import torchvision.utils as vutils
-from torch.utils.data import Dataset
-from torchvision import transforms
-from tqdm import tqdm
 
 
 def collate_fn(batch):
