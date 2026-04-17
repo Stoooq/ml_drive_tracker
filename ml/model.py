@@ -1,5 +1,4 @@
 import cv2
-import matplotlib.pyplot as plt
 import torch
 import torchvision.models as tv_models
 import torchvision.utils as vutils
