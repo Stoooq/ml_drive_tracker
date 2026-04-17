@@ -5,10 +5,9 @@ import torchvision.models as tv_models
 from torchvision import transforms
 
 from data.data_manager import DataManager
-from src.utils import (
+from ml.model import (
     detect_and_draw_bboxes,
     get_model_classes_from_weights_meta,
-    show_image_tensor,
 )
 
 
@@ -87,7 +86,6 @@ def main():
 
     cap.release()
     cv.destroyAllWindows()
-
 
 if __name__ == "__main__":
     main()

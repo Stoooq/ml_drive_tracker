@@ -42,7 +42,7 @@ def calculate_mean_std(dataset):
 
 
 def get_transforms(dataset: Dataset | None, mean: float | None, std: float | None):
-    if not mean and not std:
+    if mean is None and std is None:
         mean, std = calculate_mean_std(dataset)
 
     augmentations_transforms = [

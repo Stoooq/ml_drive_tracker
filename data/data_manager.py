@@ -3,7 +3,11 @@ from pathlib import Path
 from torch.utils.data import DataLoader
 
 from ml.dataset import Bdd100kDataset
-from src.utils import collate_fn, get_transforms
+from ml.transforms import get_transforms
+
+
+def collate_fn(batch):
+    return tuple(zip(*batch, strict=True))
 
 
 class DataManager:
@@ -14,9 +18,15 @@ class DataManager:
     def build_dataloaders(self):
         train_dataset, val_dataset, test_dataset = self._get_data()
 
-        train_loader = DataLoader(train_dataset, self.batch_size, shuffle=True, collate_fn=collate_fn)
-        val_loader = DataLoader(val_dataset, self.batch_size, shuffle=False, collate_fn=collate_fn)
-        test_loader = DataLoader(test_dataset, self.batch_size, shuffle=False, collate_fn=collate_fn)
+        train_loader = DataLoader(
+            train_dataset, self.batch_size, shuffle=True, collate_fn=collate_fn
+        )
+        val_loader = DataLoader(
+            val_dataset, self.batch_size, shuffle=False, collate_fn=collate_fn
+        )
+        test_loader = DataLoader(
+            test_dataset, self.batch_size, shuffle=False, collate_fn=collate_fn
+        )
 
         return train_loader, val_loader, test_loader
 
