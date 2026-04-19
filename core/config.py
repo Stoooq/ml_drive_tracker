@@ -17,6 +17,7 @@ class Settings(BaseSettings):
     input_path: Path = Field("storage/input/")
     output_path: Path = Field("storage/output/")
 
+    bbox_colors: list[str] = Field(["red", "blue"], min_length=1)
     target_class_names: list[str] = Field(["car", "traffic light"], min_length=1)
 
 settings = Settings()
