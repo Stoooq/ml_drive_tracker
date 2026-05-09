@@ -10,8 +10,11 @@ wheels/
 .venv
 
 datasets
+storage
 
 .env
 
 PROJECT.md
 RESEARCH.md
+
+**/.DS_Store

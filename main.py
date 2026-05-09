@@ -2,7 +2,6 @@ import argparse
 from pathlib import Path
 
 import uvicorn
-from torchvision.models.detection import fasterrcnn_resnet50_fpn
 
 from core.config import settings
 from ml.model import (
@@ -83,15 +82,9 @@ def main():
         if not Path(args.video).exists():
             parser.error(f"video file not found: {args.video}")
 
-        model = fasterrcnn_resnet50_fpn(weights="DEFAULT")
-
-        for param in model.parameters():
-            param.requires_grad = False
-
-        for param in model.roi_heads.parameters():
-            param.requires_grad = True
-
         detector = ObjectDetector(
+            model_format="PYTORCH",
+            model_path="storage/models/yolov8n.pt",
             target_classes=settings.target_class_names,
             bbox_colors=settings.bbox_colors,
             confidence_threshold=settings.confidence_threshold,
@@ -99,10 +92,28 @@ def main():
             bbox_width=settings.bbox_width,
         )
 
-        file_input_path = Path(args.video)
-        file_output_path = Path(args.output)
+        detector.detect_on_video(args.video, args.output)
 
-        output_path = detector.detect_on_video(file_input_path, file_output_path)
+        # model = fasterrcnn_resnet50_fpn(weights="DEFAULT")
+
+        # for param in model.parameters():
+        #     param.requires_grad = False
+
+        # for param in model.roi_heads.parameters():
+        #     param.requires_grad = True
+
+        # detector = ObjectDetector(
+        #     target_classes=settings.target_class_names,
+        #     bbox_colors=settings.bbox_colors,
+        #     confidence_threshold=settings.confidence_threshold,
+        #     process_every_n_frames=settings.process_every_n_frames,
+        #     bbox_width=settings.bbox_width,
+        # )
+
+        # file_input_path = Path(args.video)
+        # file_output_path = Path(args.output)
+
+        # output_path = detector.detect_on_video(file_input_path, file_output_path)
     else:
         parser.error("--video is required when not using --serve")
 
