@@ -1,13 +1,13 @@
 import torch
+from torchmetrics.detection import MeanAveragePrecision
 from tqdm import tqdm
 
 
 class ModelTrainer:
-    def __init__(self, model, train_loader, val_loader, loss_fn, optimizer, epochs):
+    def __init__(self, model, train_loader, val_loader, optimizer, epochs):
         self.model = model
         self.train_loader = train_loader
         self.val_loader = val_loader
-        self.loss_fn = loss_fn
         self.optimizer = optimizer
         self.epochs = epochs
 
@@ -22,41 +22,43 @@ class ModelTrainer:
             X_batch = X.to(self.device)
             y_batch = y.to(self.device)
 
-            output = self.model(X_batch)
+            losses = self.model(X_batch, y_batch)
 
-            loss = self.loss_fn(output, y_batch.unsqueeze(1))
+            loss = sum(losses.values())
 
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
 
-            epoch_loss += loss.item() / len(y)
+            epoch_loss += loss.item()
 
         avg_loss = epoch_loss / len(self.train_loader)
         return avg_loss
 
     def _validate_epoch(self) -> float:
         self.model.eval()
-        epoch_loss = 0.0
 
         with torch.no_grad():
+            metric = MeanAveragePrecision(iou_type="bbox")
+
             for X, y in self.val_loader:
                 X_batch = X.to(self.device)
                 y_batch = y.to(self.device)
 
                 output = self.model(X_batch)
 
-                loss = self.loss_fn(output, y_batch.unsqueeze(1))
+                metric.update(output, y_batch)
 
-                epoch_loss = loss.item() / len(y)
+            metrics = metric.compute()
 
-        avg_loss = epoch_loss / len(self.val_loader)
-        return avg_loss
+        return metrics["map"]
 
     def train(self):
         for epoch in tqdm(range(self.epochs)):
             train_loss = self._train_epoch()
 
-            val_loss = self._validate_epoch()
+            val_map = self._validate_epoch()
 
-            print(f"Epoch {epoch + 1}: train loss {train_loss}, validation loss {val_loss}")
+            print(
+                f"Epoch {epoch + 1}: train loss {train_loss}, validation map {val_map}",
+            )
