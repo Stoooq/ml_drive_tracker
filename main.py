@@ -9,6 +9,12 @@ from ml.model import (
     ObjectDetector,
 )
 
+MODEL_PATHS = {
+    "pytorch": "storage/models/yolov8n.pt",
+    "onnx": "storage/models/yolov8n.onnx",
+    "tflite": "storage/models/yolov8n_full_integer_quant.tflite",
+}
+
 
 def confidence_value(value):
     try:
@@ -85,7 +91,7 @@ def main():
 
         detector = ObjectDetector(
             model_format=ModelFormat(args.model),
-            model_path="storage/models/yolov8n.onnx",
+            model_path=Path(MODEL_PATHS[args.model]),
             target_classes=settings.target_class_names,
             bbox_colors=settings.bbox_colors,
             confidence_threshold=settings.confidence_threshold,

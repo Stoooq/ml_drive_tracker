@@ -6,3 +6,4 @@ class Detection:
     bbox: tuple[float, float, float, float]
     class_name: str
     confidence: float
+    track_id: int | None = None

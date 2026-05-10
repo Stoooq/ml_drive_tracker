@@ -54,12 +54,23 @@ class ObjectDetector:
         result = []
 
         with torch.no_grad():
-            prediction = self.model(frame)[0]
+            prediction = self.model.track(
+                frame,
+                tracker="bytetrack.yaml",
+                persist=True,
+            )[0]
 
-        for xyxy, conf, box_class in zip(
+        ids = (
+            prediction.boxes.id
+            if prediction.boxes.id is not None
+            else [None] * len(prediction.boxes.xyxy)
+        )
+
+        for xyxy, conf, box_class, box_id in zip(
             prediction.boxes.xyxy,
             prediction.boxes.conf,
             prediction.boxes.cls,
+            ids,
             strict=True,
         ):
             class_name = self.model.names[int(box_class)]
@@ -69,6 +80,7 @@ class ObjectDetector:
                         bbox=xyxy.tolist(),
                         class_name=class_name,
                         confidence=conf.item(),
+                        track_id=int(box_id) if box_id is not None else None,
                     ),
                 )
 
@@ -170,6 +182,17 @@ class ObjectDetector:
                     (0, 255, 0),
                     self.bbox_width,
                 )
+
+                if detection.track_id is not None:
+                    cv2.putText(
+                        frame,
+                        f"{detection.track_id}",
+                        (int(detection.bbox[2]), int(detection.bbox[1]) - 10),
+                        cv2.FONT_HERSHEY_SIMPLEX,
+                        0.5,
+                        (0, 255, 0),
+                        self.bbox_width,
+                    )
 
         return frame
 
