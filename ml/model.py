@@ -5,6 +5,7 @@ import cv2
 import numpy as np
 import onnxruntime
 import torch
+from boxmot.trackers.bytetrack.bytetrack import ByteTrack
 from cv2.typing import NumPyArrayNumeric
 from ultralytics import YOLO
 
@@ -43,6 +44,7 @@ class ObjectDetector:
         match self.model_format:
             case ModelFormat.ONNX:
                 model = onnxruntime.InferenceSession(str(self.model_path))
+                self.tracker = ByteTrack()
             case ModelFormat.TFLITE:
                 model = ""
             case _:
@@ -120,10 +122,18 @@ class ObjectDetector:
         class_ids = class_ids[mask]
         confidences = confidences[mask]
 
-        x1 = boxes[:, 0] - (boxes[:, 2] / 2)
-        y1 = boxes[:, 1] - (boxes[:, 3] / 2)
         w = boxes[:, 2]
         h = boxes[:, 3]
+
+        x1 = boxes[:, 0] - (boxes[:, 2] / 2)
+        y1 = boxes[:, 1] - (boxes[:, 3] / 2)
+        x2 = x1 + w
+        y2 = y1 + h
+
+        x1_px = x1 * original_width
+        y1_px = y1 * original_height
+        x2_px = x2 * original_width
+        y2_px = y2 * original_height
 
         boxes_xywh = np.column_stack([x1, y1, w, h])
 
@@ -134,25 +144,33 @@ class ObjectDetector:
             nms_threshold=0.45,
         )
 
-        for i in indices:
-            box = boxes_xywh[i]
-            confidence = confidences[i]
-            class_id = class_ids[i]
+        x1_px = x1_px[indices]
+        y1_px = y1_px[indices]
+        x2_px = x2_px[indices]
+        y2_px = y2_px[indices]
+        confidences = confidences[indices]
+        class_ids = class_ids[indices]
 
-            x1_scaled = box[0] * original_width
-            y1_scaled = box[1] * original_height
-            x2_scaled = (box[0] + box[2]) * original_width
-            y2_scaled = (box[1] + box[3]) * original_height
+        detections_array = np.column_stack(
+            [x1_px, y1_px, x2_px, y2_px, confidences, class_ids],
+        )
 
-            bbox = [x1_scaled, y1_scaled, x2_scaled, y2_scaled]
+        tracks = self.tracker.update(detections_array, frame)
 
-            class_name = COCO_INDICES[class_id]
+        for track in tracks:
+            bbox = [track[0], track[1], track[2], track[3]]
+            box_id = track[4]
+            confidence = track[5]
+            class_id = track[6]
+
+            class_name = COCO_INDICES[int(class_id)]
 
             result.append(
                 Detection(
                     bbox=bbox,
                     class_name=class_name,
                     confidence=confidence.item(),
+                    track_id=int(box_id),
                 ),
             )
 
