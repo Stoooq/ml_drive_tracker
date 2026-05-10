@@ -2,11 +2,14 @@ from enum import Enum
 from pathlib import Path
 
 import cv2
+import numpy as np
+import onnxruntime
 import torch
 from cv2.typing import NumPyArrayNumeric
 from ultralytics import YOLO
 
 from core.types import Detection
+from ml.constants import COCO_INDICES, COCO_NAMES
 
 
 class ModelFormat(Enum):
@@ -39,7 +42,7 @@ class ObjectDetector:
     def load_model(self):
         match self.model_format:
             case ModelFormat.ONNX:
-                model = ""
+                model = onnxruntime.InferenceSession(str(self.model_path))
             case ModelFormat.TFLITE:
                 model = ""
             case _:
@@ -47,7 +50,7 @@ class ObjectDetector:
 
         return model
 
-    def detect(self, frame: NumPyArrayNumeric) -> list[Detection]:
+    def _detect_pytorch(self, frame: NumPyArrayNumeric) -> list[Detection]:
         result = []
 
         with torch.no_grad():
@@ -68,6 +71,78 @@ class ObjectDetector:
                         confidence=conf.item(),
                     ),
                 )
+
+        return result
+
+    def _detect_onnx(self, frame: NumPyArrayNumeric) -> list[Detection]:
+        original_height, original_width = frame.shape[:2]
+
+        frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        frame_resized = cv2.resize(frame_rgb, (640, 640))
+        frame_normalized = frame_resized / 255.0
+        frame_transposed = np.transpose(frame_normalized, (2, 0, 1))
+        input_frame = np.expand_dims(frame_transposed, 0).astype(np.float32)
+
+        result = []
+
+        output_name = self.model.get_outputs()[0].name
+        input_name = self.model.get_inputs()[0].name
+
+        predictions = self.model.run([output_name], {input_name: input_frame})
+
+        output = predictions[0][0].T
+
+        boxes = output[:, :4]
+        class_scores = output[:, 4:]
+
+        class_ids = np.argmax(class_scores, axis=1)
+        confidences = np.max(class_scores, axis=1)
+
+        target_indices = {COCO_NAMES[name] for name in self.target_classes}
+
+        mask1 = confidences >= self.confidence_threshold
+        mask2 = np.isin(class_ids, list(target_indices))
+        mask = mask1 & mask2
+
+        boxes = boxes[mask]
+        class_ids = class_ids[mask]
+        confidences = confidences[mask]
+
+        x1 = boxes[:, 0] - (boxes[:, 2] / 2)
+        y1 = boxes[:, 1] - (boxes[:, 3] / 2)
+        w = boxes[:, 2]
+        h = boxes[:, 3]
+
+        boxes_xywh = np.column_stack([x1, y1, w, h])
+
+        indices = cv2.dnn.NMSBoxes(
+            boxes_xywh.tolist(),
+            confidences.tolist(),
+            self.confidence_threshold,
+            nms_threshold=0.45,
+        )
+
+        for i in indices:
+            box = boxes_xywh[i]
+            confidence = confidences[i]
+            class_id = class_ids[i]
+
+            x1_scaled = box[0] * original_width
+            y1_scaled = box[1] * original_height
+            x2_scaled = (box[0] + box[2]) * original_width
+            y2_scaled = (box[1] + box[3]) * original_height
+
+            bbox = [x1_scaled, y1_scaled, x2_scaled, y2_scaled]
+
+            class_name = COCO_INDICES[class_id]
+
+            result.append(
+                Detection(
+                    bbox=bbox,
+                    class_name=class_name,
+                    confidence=confidence.item(),
+                ),
+            )
 
         return result
 
@@ -117,7 +192,14 @@ class ObjectDetector:
                     print("Reading error.")
                 break
 
-            objects_detected = self.detect(frame)
+            match self.model_format:
+                case ModelFormat.ONNX:
+                    objects_detected = self._detect_onnx(frame)
+                case ModelFormat.TFLITE:
+                    objects_detected = ""
+                case _:
+                    objects_detected = self._detect_pytorch(frame)
+
             new_frame = self.draw_detections(frame, objects_detected)
 
             out.write(new_frame)

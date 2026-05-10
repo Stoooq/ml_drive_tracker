@@ -5,6 +5,7 @@ import uvicorn
 
 from core.config import settings
 from ml.model import (
+    ModelFormat,
     ObjectDetector,
 )
 
@@ -83,8 +84,8 @@ def main():
             parser.error(f"video file not found: {args.video}")
 
         detector = ObjectDetector(
-            model_format="PYTORCH",
-            model_path="storage/models/yolov8n.pt",
+            model_format=ModelFormat(args.model),
+            model_path="storage/models/yolov8n.onnx",
             target_classes=settings.target_class_names,
             bbox_colors=settings.bbox_colors,
             confidence_threshold=settings.confidence_threshold,
