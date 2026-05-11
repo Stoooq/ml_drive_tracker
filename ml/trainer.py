@@ -1,6 +1,9 @@
+from pathlib import Path
+
 import torch
 from torchmetrics.detection import MeanAveragePrecision
 from tqdm import tqdm
+from ultralytics import YOLO
 
 
 class ModelTrainer:
@@ -62,3 +65,45 @@ class ModelTrainer:
             print(
                 f"Epoch {epoch + 1}: train loss {train_loss}, validation map {val_map}",
             )
+
+
+class YOLOTrainer:
+    def __init__(
+        self,
+        model_path: Path,
+        output_path: Path,
+        data_path: Path,
+        epochs: int,
+        device: str = "cuda" if torch.cuda.is_available() else "cpu",
+    ):
+        self.model_path = model_path
+        self.output_path = output_path
+        self.data_path = data_path
+        self.epochs = epochs
+        self.device = device
+
+        self.model = YOLO(self.model_path)
+
+    def train(self):
+        results = self.model.train(
+            project=str(self.output_path.parent),
+            name=self.output_path.name,
+            data=str(self.data_path),
+            epochs=self.epochs,
+            device=self.device,
+            imgsz=640,
+        )
+
+        return results
+
+
+if __name__ == "__main__":
+    trainer = YOLOTrainer(
+        model_path=Path("storage/models/yolov8n.pt"),
+        output_path=Path("storage/"),
+        data_path=Path("data/bdd100k.yaml"),
+        epochs=50,
+        device="mps",
+    )
+
+    trainer.train()

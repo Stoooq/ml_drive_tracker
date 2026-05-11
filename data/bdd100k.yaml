@@ -1,0 +1,8 @@
+path: datasets/bdd100k/bdd100k/bdd100k
+train: images/100k/train
+val: images/100k/val
+
+nc: 2
+names:
+  0: car
+  1: traffic light
