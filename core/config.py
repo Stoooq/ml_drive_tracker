@@ -20,4 +20,9 @@ class Settings(BaseSettings):
     bbox_colors: list[str] = Field(["red", "blue"], min_length=1)
     target_class_names: list[str] = Field(["car", "traffic light"], min_length=1)
 
+    benchmark_video_path: Path = Field(
+        "storage/input/istockphoto-2159760544-640_adpp_is.mp4",
+    )
+
+
 settings = Settings()
