@@ -18,3 +18,5 @@ PROJECT.md
 RESEARCH.md
 
 **/.DS_Store
+
+mlflow.db

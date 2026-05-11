@@ -249,3 +249,12 @@ class ObjectDetector:
         out.release()
 
         return output_path
+
+    def detect(self, frame: NumPyArrayNumeric) -> list[Detection]:
+        match self.model_format:
+            case ModelFormat.ONNX:
+                return self._detect_onnx(frame)
+            case ModelFormat.TFLITE:
+                return []
+            case _:
+                return self._detect_pytorch(frame)

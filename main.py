@@ -3,6 +3,7 @@ from pathlib import Path
 
 import uvicorn
 
+from core.benchmark import Benchmark
 from core.config import settings
 from ml.model import (
     ModelFormat,
@@ -89,17 +90,27 @@ def main():
         if not Path(args.video).exists():
             parser.error(f"video file not found: {args.video}")
 
-        detector = ObjectDetector(
+        benchmark = Benchmark(
             model_format=ModelFormat(args.model),
             model_path=Path(MODEL_PATHS[args.model]),
-            target_classes=settings.target_class_names,
-            bbox_colors=settings.bbox_colors,
-            confidence_threshold=settings.confidence_threshold,
-            process_every_n_frames=settings.process_every_n_frames,
-            bbox_width=settings.bbox_width,
+            video_path=args.video,
+            num_frames=100,
+            run_name=f"yolov8n_{args.model}",
         )
 
-        detector.detect_on_video(args.video, args.output)
+        benchmark.run()
+
+        # detector = ObjectDetector(
+        #     model_format=ModelFormat(args.model),
+        #     model_path=Path(MODEL_PATHS[args.model]),
+        #     target_classes=settings.target_class_names,
+        #     bbox_colors=settings.bbox_colors,
+        #     confidence_threshold=settings.confidence_threshold,
+        #     process_every_n_frames=settings.process_every_n_frames,
+        #     bbox_width=settings.bbox_width,
+        # )
+
+        # detector.detect_on_video(args.video, args.output)
 
         # model = fasterrcnn_resnet50_fpn(weights="DEFAULT")
 
