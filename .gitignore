@@ -22,3 +22,5 @@ RESEARCH.md
 mlflow.db
 
 .vscode/
+
+cpp/build/

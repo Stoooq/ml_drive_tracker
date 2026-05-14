@@ -1,4 +1,6 @@
 #include "detector.hpp"
+#include <stdexcept>
+#include <cmath>
 
 static const std::unordered_map<int, std::string> COCO_NAMES = {
     {0, "person"},
@@ -88,8 +90,20 @@ TFLiteDetector::TFLiteDetector(const std::string &model_path)
 {
     buffer = tflite::FlatBufferModel::BuildFromFile(model_path.c_str());
 
+    if (buffer == nullptr)
+    {
+        std::cerr << "ERROR! buffer\n";
+        throw std::runtime_error("opis błędu");
+    }
+
     tflite::ops::builtin::BuiltinOpResolver resolver;
     tflite::InterpreterBuilder(*buffer, resolver)(&interpreter);
+
+    if (interpreter == nullptr)
+    {
+        std::cerr << "ERROR! interpreter\n";
+        throw std::runtime_error("opis błędu");
+    }
 
     this->interpreter->AllocateTensors();
 }
@@ -106,34 +120,51 @@ std::vector<Detection> TFLiteDetector::detect(cv::Mat frame)
     cv::resize(frame, resized, cv::Size(width, height));
 
     int8_t *input_data = interpreter->typed_tensor<int8_t>(input_index);
-    std::memcpy(input_data, resized.data, resized.total() * resized.elemSize());
+
+    float input_scale = input_tensor->params.scale;
+    int input_zero_point = input_tensor->params.zero_point;
+
+    for (int i = 0; i < resized.total() * resized.elemSize(); i++)
+    {
+        float data = resized.data[i];
+        data /= 255.0f;
+        data = (data / input_scale) + input_zero_point;
+        input_data[i] = static_cast<int8_t>(std::round(data));
+    }
 
     interpreter->Invoke();
 
     int output_index = interpreter->outputs()[0];
     TfLiteTensor *output_tensor = interpreter->tensor(output_index);
 
-    float *output_data = interpreter->typed_tensor<float>(output_index);
+    int8_t *output_data = interpreter->typed_tensor<int8_t>(output_index);
 
     int num_detections = 8400;
+
+    float scale = output_tensor->params.scale;
+    int zero_point = output_tensor->params.zero_point;
 
     std::vector<Detection> result;
     int orig_height = frame.rows;
     int orig_width = frame.cols;
     float confidence_threshold = 0.4f;
 
+    std::vector<cv::Rect> boxes;
+    std::vector<float> confidences;
+    std::vector<int> class_ids;
+
     for (int i = 0; i < num_detections; i++)
     {
-        float cx = output_data[0 * num_detections + i];
-        float cy = output_data[1 * num_detections + i];
-        float w = output_data[2 * num_detections + i];
-        float h = output_data[3 * num_detections + i];
+        float cx = (output_data[0 * num_detections + i] - zero_point) * scale;
+        float cy = (output_data[1 * num_detections + i] - zero_point) * scale;
+        float w = (output_data[2 * num_detections + i] - zero_point) * scale;
+        float h = (output_data[3 * num_detections + i] - zero_point) * scale;
 
         float max_score = 0;
         int class_id = 0;
         for (int c = 0; c < 80; c++)
         {
-            float score = output_data[(4 + c) * num_detections + i];
+            float score = (output_data[(4 + c) * num_detections + i] - zero_point) * scale;
             if (score > max_score)
             {
                 max_score = score;
@@ -153,13 +184,27 @@ std::vector<Detection> TFLiteDetector::detect(cv::Mat frame)
             int x2_px = x2 * orig_width;
             int y2_px = y2 * orig_height;
 
-            result.push_back(Detection{
-                {x1_px, y1_px, x2_px, y2_px},
-                COCO_NAMES.at(class_id),
-                max_score,
-                std::nullopt,
-            });
+            boxes.push_back(cv::Rect{x1_px, y1_px, x2_px - x1_px, y2_px - y1_px});
+            confidences.push_back(max_score);
+            class_ids.push_back(class_id);
         }
+    }
+
+    std::vector<int> indices;
+    cv::dnn::NMSBoxes(boxes, confidences, confidence_threshold, 0.45f, indices);
+
+    for (int &indice : indices)
+    {
+        cv::Rect box = boxes[indice];
+        float confidence = confidences[indice];
+        int class_id = class_ids[indice];
+
+        result.push_back(Detection{
+            {box.x, box.y, box.x + box.width, box.y + box.height},
+            COCO_NAMES.at(class_id),
+            confidence,
+            std::nullopt,
+        });
     }
 
     return result;
