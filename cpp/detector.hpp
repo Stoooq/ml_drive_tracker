@@ -18,6 +18,14 @@ struct Detection
     std::optional<int> track_id;
 };
 
+struct CDetection
+{
+    int bbox[4];
+    char class_name[64];
+    float confidence;
+    int track_id;
+};
+
 class TFLiteDetector
 {
 private:
@@ -29,3 +37,8 @@ public:
     TFLiteDetector(const std::string &model_path);
     std::vector<Detection> detect(cv::Mat frame);
 };
+
+extern "C"
+{
+    int detect_frame(const char *model_path, uint8_t *frame_data, int width, int height, int channels, CDetection *out_detections, int max_detections);
+}

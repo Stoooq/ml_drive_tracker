@@ -4,11 +4,7 @@ from pathlib import Path
 import uvicorn
 
 from core.benchmark import Benchmark
-from core.config import settings
-from ml.model import (
-    ModelFormat,
-    ObjectDetector,
-)
+from ml.model import ModelFormat
 
 MODEL_PATHS = {
     "pytorch": "storage/models/yolov8n.pt",
@@ -99,39 +95,6 @@ def main():
         )
 
         benchmark.run()
-
-        # detector = ObjectDetector(
-        #     model_format=ModelFormat(args.model),
-        #     model_path=Path(MODEL_PATHS[args.model]),
-        #     target_classes=settings.target_class_names,
-        #     bbox_colors=settings.bbox_colors,
-        #     confidence_threshold=settings.confidence_threshold,
-        #     process_every_n_frames=settings.process_every_n_frames,
-        #     bbox_width=settings.bbox_width,
-        # )
-
-        # detector.detect_on_video(args.video, args.output)
-
-        # model = fasterrcnn_resnet50_fpn(weights="DEFAULT")
-
-        # for param in model.parameters():
-        #     param.requires_grad = False
-
-        # for param in model.roi_heads.parameters():
-        #     param.requires_grad = True
-
-        # detector = ObjectDetector(
-        #     target_classes=settings.target_class_names,
-        #     bbox_colors=settings.bbox_colors,
-        #     confidence_threshold=settings.confidence_threshold,
-        #     process_every_n_frames=settings.process_every_n_frames,
-        #     bbox_width=settings.bbox_width,
-        # )
-
-        # file_input_path = Path(args.video)
-        # file_output_path = Path(args.output)
-
-        # output_path = detector.detect_on_video(file_input_path, file_output_path)
     else:
         parser.error("--video is required when not using --serve")
 

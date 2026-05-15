@@ -31,3 +31,9 @@ add_executable(tflite_detect main.cpp detector.cpp)
 target_link_libraries(tflite_detect ${OpenCV_LIBS})
 target_link_libraries(tflite_detect tensorflow-lite)
 target_include_directories(tflite_detect PRIVATE ${tflite_SOURCE_DIR})
+
+add_library(tflite_detect_lib SHARED detector.cpp detector_lib.cpp)
+
+target_link_libraries(tflite_detect_lib ${OpenCV_LIBS})
+target_link_libraries(tflite_detect_lib tensorflow-lite)
+target_include_directories(tflite_detect_lib PRIVATE ${tflite_SOURCE_DIR})

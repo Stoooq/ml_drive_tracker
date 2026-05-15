@@ -1,3 +1,4 @@
+import ctypes
 from enum import Enum
 from pathlib import Path
 
@@ -9,8 +10,11 @@ from boxmot.trackers.bytetrack.bytetrack import ByteTrack
 from cv2.typing import NumPyArrayNumeric
 from ultralytics import YOLO
 
-from core.types import Detection
+from core.config import settings
+from core.types import CDetection, Detection
 from ml.constants import COCO_INDICES, COCO_NAMES
+
+lib = ctypes.CDLL(str(settings.cpp_tflite_detect_path))
 
 
 class ModelFormat(Enum):
@@ -176,6 +180,38 @@ class ObjectDetector:
 
         return result
 
+    def _detect_tflite(self, frame: NumPyArrayNumeric) -> list[Detection]:
+        MAX_DETECTIONS = 100
+        out_detections = (CDetection * MAX_DETECTIONS)()
+
+        frame = np.ascontiguousarray(frame, dtype=np.uint8)
+        frame_data = frame.ctypes.data_as(ctypes.POINTER(ctypes.c_uint8))
+
+        num_detections = lib.detect_frame(
+            str(self.model_path).encode(),
+            frame_data,
+            frame.shape[1],
+            frame.shape[0],
+            frame.shape[2],
+            out_detections,
+            MAX_DETECTIONS,
+        )
+
+        result = []
+
+        for i in range(num_detections):
+            detection = out_detections[i]
+            result.append(
+                Detection(
+                    bbox=tuple(detection.bbox),
+                    class_name=detection.class_name.decode(),
+                    confidence=detection.confidence,
+                    track_id=detection.track_id if detection.track_id != -1 else None,
+                ),
+            )
+
+        return result
+
     def draw_detections(
         self,
         frame: NumPyArrayNumeric,
@@ -237,7 +273,7 @@ class ObjectDetector:
                 case ModelFormat.ONNX:
                     objects_detected = self._detect_onnx(frame)
                 case ModelFormat.TFLITE:
-                    objects_detected = ""
+                    objects_detected = self._detect_tflite(frame)
                 case _:
                     objects_detected = self._detect_pytorch(frame)
 
@@ -255,6 +291,6 @@ class ObjectDetector:
             case ModelFormat.ONNX:
                 return self._detect_onnx(frame)
             case ModelFormat.TFLITE:
-                return []
+                return self._detect_tflite(frame)
             case _:
                 return self._detect_pytorch(frame)

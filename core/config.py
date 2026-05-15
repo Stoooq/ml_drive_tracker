@@ -24,5 +24,9 @@ class Settings(BaseSettings):
         "storage/input/istockphoto-2159760544-640_adpp_is.mp4",
     )
 
+    cpp_tflite_detect_path: Path = Field(
+        "cpp/build/libtflite_detect_lib.dylib",
+    )
+
 
 settings = Settings()
