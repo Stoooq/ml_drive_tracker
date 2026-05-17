@@ -1,6 +1,7 @@
 #include "detector.hpp"
 #include <stdexcept>
 #include <cmath>
+#include <chrono>
 
 static const std::unordered_map<int, std::string> COCO_NAMES = {
     {0, "person"},
@@ -110,6 +111,7 @@ TFLiteDetector::TFLiteDetector(const std::string &model_path)
 
 std::vector<Detection> TFLiteDetector::detect(cv::Mat frame)
 {
+    auto t1 = std::chrono::high_resolution_clock::now();
     int input_index = interpreter->inputs()[0];
     TfLiteTensor *input_tensor = interpreter->tensor(input_index);
 
@@ -131,8 +133,12 @@ std::vector<Detection> TFLiteDetector::detect(cv::Mat frame)
         data = (data / input_scale) + input_zero_point;
         input_data[i] = static_cast<int8_t>(std::round(data));
     }
-
+    auto t2 = std::chrono::high_resolution_clock::now();
     interpreter->Invoke();
+    auto t3 = std::chrono::high_resolution_clock::now();
+
+    std::cout << "Quantization: " << std::chrono::duration_cast<std::chrono::milliseconds>(t2 - t1).count() << "ms\n";
+    std::cout << "Invoke: " << std::chrono::duration_cast<std::chrono::milliseconds>(t3 - t2).count() << "ms\n";
 
     int output_index = interpreter->outputs()[0];
     TfLiteTensor *output_tensor = interpreter->tensor(output_index);

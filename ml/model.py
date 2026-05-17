@@ -47,7 +47,9 @@ class ObjectDetector:
     def load_model(self):
         match self.model_format:
             case ModelFormat.ONNX:
-                model = onnxruntime.InferenceSession(str(self.model_path))
+                opts = onnxruntime.SessionOptions()
+                opts.intra_op_num_threads = 1
+                model = onnxruntime.InferenceSession(str(self.model_path), opts)
                 self.tracker = ByteTrack()
             case ModelFormat.TFLITE:
                 model = ""
@@ -58,6 +60,7 @@ class ObjectDetector:
 
     def _detect_pytorch(self, frame: NumPyArrayNumeric) -> list[Detection]:
         result = []
+        torch.set_num_threads(1)
 
         with torch.no_grad():
             prediction = self.model.track(
