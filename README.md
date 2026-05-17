@@ -46,16 +46,15 @@ Dashcam video (.mp4)
 
 ## Benchmark Results
 
-Measured on Apple M4 Pro, CPU inference, 100 frames, YOLOv8n pretrained on COCO.
+### Simulated ARM64 — arm64v8/Ubuntu 22.04 in Docker on Apple M-series (`--cpus 4 --memory 4g`, 100 frames)
 
-| Model | Format | Latency (ms) | FPS |
+| Format | Size | Latency (ms) | FPS |
 |---|---|---|---|
-| YOLOv8n pretrained | PyTorch FP32 | 28.38 | 35.23 |
-| YOLOv8n pretrained | ONNX FP32 | 55.87 | 17.90 |
-| YOLOv8n pretrained | TFLite INT8 | - | - |
-| YOLOv8n fine-tuned BDD100K | PyTorch FP32 | - | - |
+| PyTorch FP32 | 6.3 MB | 59.19 | 16.90 |
+| ONNX FP32 | 13 MB | 103.67 | 9.65 |
+| TFLite INT8 C++ | 3.3 MB | ~78 | ~13 |
 
-TFLite INT8 and fine-tuned results will be added after C++ module completion and BDD100K training.
+> **Note:** The Docker simulation runs on the ARM64 silicon as the host (Apple M-series) - it is not a true Raspberry Pi emulation. Per-core performance is significantly higher than a real Cortex-A72 (RPi 4). The relative ordering between formats is informative, but absolute numbers would differ on real embedded hardware. On a memory-constrained device, TFLite INT8 has an additional advantage: its model is 4× smaller than ONNX and 2× smaller than PyTorch FP32.
 
 ## Getting Started
 
@@ -148,7 +147,11 @@ ml_drive_tracker/
 ├── data/
 │   ├── convert_bdd100k.py   # BDD100K JSON → YOLO format converter
 │   └── bdd100k.yaml         # Dataset config for ultralytics
-├── cpp/                     # C++ TFLite inference module (coming soon)
+├── cpp/
+│   ├── CMakeLists.txt       # CMake build — FetchContent downloads TFLite from source
+│   ├── detector.hpp/.cpp    # TFLiteDetector class: quantized input/output, NMS
+│   ├── detector_lib.cpp     # C ABI shared library (.so) for Python ctypes
+│   └── main.cpp             # Standalone C++ binary for direct inference
 ├── storage/
 │   ├── input/               # Input videos
 │   ├── output/              # Annotated output videos
@@ -160,6 +163,6 @@ ml_drive_tracker/
 
 ## Future Work
 
-- C++ TFLite inference module using TFLite C++ API
-- SORT tracker from scratch (Kalman filter + Hungarian algorithm)
-- GradCAM / EigenCAM interpretability endpoint
+- mAP evaluation across all three formats to complete the accuracy-latency-size tradeoff table
+- SORT tracker from scratch (Kalman filter + Hungarian algorithm) as a drop-in replacement for ByteTrack
+- GradCAM / EigenCAM interpretability endpoint for visualizing model attention on dashcam frames
