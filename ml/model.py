@@ -14,8 +14,6 @@ from core.config import settings
 from core.types import CDetection, Detection
 from ml.constants import COCO_INDICES, COCO_NAMES
 
-lib = ctypes.CDLL(str(settings.cpp_tflite_detect_path))
-
 
 class ModelFormat(Enum):
     PYTORCH = "pytorch"
@@ -28,10 +26,11 @@ class ObjectDetector:
         self,
         model_format: ModelFormat,
         model_path: Path,
-        target_classes: list[str],
         bbox_colors: list[str],
         confidence_threshold: float,
         process_every_n_frames: int,
+        target_classes: list[str] | None = None,
+        tracking_enabled: bool = True,
         bbox_width: int = 3,
     ):
         self.model_format = model_format
@@ -40,6 +39,7 @@ class ObjectDetector:
         self.bbox_colors = bbox_colors
         self.confidence_threshold = confidence_threshold
         self.process_every_n_frames = process_every_n_frames
+        self.tracking_enabled = tracking_enabled
         self.bbox_width = bbox_width
 
         self.model = self.load_model()
@@ -49,9 +49,13 @@ class ObjectDetector:
             case ModelFormat.ONNX:
                 opts = onnxruntime.SessionOptions()
                 opts.intra_op_num_threads = 1
+                opts.enable_cpu_mem_arena = False
+                opts.enable_mem_pattern = False
                 model = onnxruntime.InferenceSession(str(self.model_path), opts)
-                self.tracker = ByteTrack()
+                if self.tracking_enabled:
+                    self.tracker = ByteTrack()
             case ModelFormat.TFLITE:
+                self.lib = ctypes.CDLL(str(settings.cpp_tflite_detect_path))
                 model = ""
             case _:
                 model = YOLO(self.model_path)
@@ -60,7 +64,6 @@ class ObjectDetector:
 
     def _detect_pytorch(self, frame: NumPyArrayNumeric) -> list[Detection]:
         result = []
-        torch.set_num_threads(1)
 
         with torch.no_grad():
             prediction = self.model.track(
@@ -83,7 +86,12 @@ class ObjectDetector:
             strict=True,
         ):
             class_name = self.model.names[int(box_class)]
-            if class_name in self.target_classes and conf >= self.confidence_threshold:
+            passes_class_filter = (
+                class_name in self.target_classes
+                if self.target_classes is not None
+                else True
+            )
+            if passes_class_filter and conf >= self.confidence_threshold:
                 result.append(
                     Detection(
                         bbox=xyxy.tolist(),
@@ -95,12 +103,14 @@ class ObjectDetector:
 
         return result
 
-    def _detect_onnx(self, frame: NumPyArrayNumeric) -> list[Detection]:
+    def _detect_onnx(
+        self, frame: NumPyArrayNumeric, tracking_enabled: bool = True
+    ) -> list[Detection]:
         original_height, original_width = frame.shape[:2]
 
         frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         frame_resized = cv2.resize(frame_rgb, (640, 640))
-        frame_normalized = frame_resized / 255.0
+        frame_normalized = frame_resized / np.float32(255.0)
         frame_transposed = np.transpose(frame_normalized, (2, 0, 1))
         input_frame = np.expand_dims(frame_transposed, 0).astype(np.float32)
 
@@ -119,10 +129,15 @@ class ObjectDetector:
         class_ids = np.argmax(class_scores, axis=1)
         confidences = np.max(class_scores, axis=1)
 
-        target_indices = {COCO_NAMES[name] for name in self.target_classes}
+        if self.target_classes is not None:
+            target_indices = {COCO_NAMES[name] for name in self.target_classes}
 
         mask1 = confidences >= self.confidence_threshold
-        mask2 = np.isin(class_ids, list(target_indices))
+        mask2 = (
+            np.isin(class_ids, list(target_indices))
+            if self.target_classes is not None
+            else True
+        )
         mask = mask1 & mask2
 
         boxes = boxes[mask]
@@ -162,13 +177,20 @@ class ObjectDetector:
             [x1_px, y1_px, x2_px, y2_px, confidences, class_ids],
         )
 
-        tracks = self.tracker.update(detections_array, frame)
+        if tracking_enabled:
+            detections = self.tracker.update(detections_array, frame)
+        else:
+            detections = detections_array
 
-        for track in tracks:
-            bbox = [track[0], track[1], track[2], track[3]]
-            box_id = track[4]
-            confidence = track[5]
-            class_id = track[6]
+        for detection in detections:
+            bbox = [detection[0], detection[1], detection[2], detection[3]]
+            if tracking_enabled:
+                box_id = detection[4]
+                confidence = detection[5]
+                class_id = detection[6]
+            else:
+                confidence = detection[4]
+                class_id = detection[5]
 
             class_name = COCO_INDICES[int(class_id)]
 
@@ -177,20 +199,20 @@ class ObjectDetector:
                     bbox=bbox,
                     class_name=class_name,
                     confidence=confidence.item(),
-                    track_id=int(box_id),
+                    track_id=int(box_id) if tracking_enabled else None,
                 ),
             )
 
         return result
 
     def _detect_tflite(self, frame: NumPyArrayNumeric) -> list[Detection]:
-        MAX_DETECTIONS = 100
+        MAX_DETECTIONS = 200
         out_detections = (CDetection * MAX_DETECTIONS)()
 
         frame = np.ascontiguousarray(frame, dtype=np.uint8)
         frame_data = frame.ctypes.data_as(ctypes.POINTER(ctypes.c_uint8))
 
-        num_detections = lib.detect_frame(
+        num_detections = self.lib.detect_frame(
             str(self.model_path).encode(),
             frame_data,
             frame.shape[1],
@@ -198,6 +220,7 @@ class ObjectDetector:
             frame.shape[2],
             out_detections,
             MAX_DETECTIONS,
+            ctypes.c_float(self.confidence_threshold),
         )
 
         result = []
@@ -292,7 +315,7 @@ class ObjectDetector:
     def detect(self, frame: NumPyArrayNumeric) -> list[Detection]:
         match self.model_format:
             case ModelFormat.ONNX:
-                return self._detect_onnx(frame)
+                return self._detect_onnx(frame, self.tracking_enabled)
             case ModelFormat.TFLITE:
                 return self._detect_tflite(frame)
             case _:

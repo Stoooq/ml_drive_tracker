@@ -109,7 +109,7 @@ TFLiteDetector::TFLiteDetector(const std::string &model_path)
     this->interpreter->AllocateTensors();
 }
 
-std::vector<Detection> TFLiteDetector::detect(cv::Mat frame)
+std::vector<Detection> TFLiteDetector::detect(cv::Mat frame, float confidence_threshold)
 {
     auto t1 = std::chrono::high_resolution_clock::now();
     int input_index = interpreter->inputs()[0];
@@ -118,8 +118,10 @@ std::vector<Detection> TFLiteDetector::detect(cv::Mat frame)
     int height = input_tensor->dims->data[1];
     int width = input_tensor->dims->data[2];
 
+    cv::Mat rgb;
+    cv::cvtColor(frame, rgb, cv::COLOR_BGR2RGB);
     cv::Mat resized;
-    cv::resize(frame, resized, cv::Size(width, height));
+    cv::resize(rgb, resized, cv::Size(width, height));
 
     int8_t *input_data = interpreter->typed_tensor<int8_t>(input_index);
 
@@ -153,7 +155,6 @@ std::vector<Detection> TFLiteDetector::detect(cv::Mat frame)
     std::vector<Detection> result;
     int orig_height = frame.rows;
     int orig_width = frame.cols;
-    float confidence_threshold = 0.4f;
 
     std::vector<cv::Rect> boxes;
     std::vector<float> confidences;

@@ -35,10 +35,10 @@ private:
 
 public:
     TFLiteDetector(const std::string &model_path);
-    std::vector<Detection> detect(cv::Mat frame);
+    std::vector<Detection> detect(cv::Mat frame, float confidence_threshold);
 };
 
 extern "C"
 {
-    int detect_frame(const char *model_path, uint8_t *frame_data, int width, int height, int channels, CDetection *out_detections, int max_detections);
+    int detect_frame(const char *model_path, uint8_t *frame_data, int width, int height, int channels, CDetection *out_detections, int max_detections, float confidence_threshold);
 }

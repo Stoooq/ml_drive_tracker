@@ -24,3 +24,6 @@ mlflow.db
 .vscode/
 
 cpp/build/
+
+runs/
+tmp_session_notes.md

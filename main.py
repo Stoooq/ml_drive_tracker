@@ -4,6 +4,7 @@ from pathlib import Path
 import uvicorn
 
 from core.benchmark import Benchmark
+from ml.evaluate import evaluate_model
 from ml.model import ModelFormat
 
 MODEL_PATHS = {
@@ -86,15 +87,28 @@ def main():
         if not Path(args.video).exists():
             parser.error(f"video file not found: {args.video}")
 
-        benchmark = Benchmark(
-            model_format=ModelFormat(args.model),
-            model_path=Path(MODEL_PATHS[args.model]),
-            video_path=args.video,
-            num_frames=100,
-            run_name=f"yolov8n_{args.model}",
+        metrics = evaluate_model(
+            ModelFormat(args.model),
+            Path(MODEL_PATHS[args.model]),
+            images_dir=Path(
+                "/Users/miloszglowacki/Desktop/code/python/datasets/coco/images/val2017"
+            ),
+            annotations_path=Path(
+                "/Users/miloszglowacki/Desktop/code/python/datasets/coco/annotations/instances_val2017.json"
+            ),
         )
 
-        benchmark.run()
+        print(metrics)
+
+        # benchmark = Benchmark(
+        #     model_format=ModelFormat(args.model),
+        #     model_path=Path(MODEL_PATHS[args.model]),
+        #     video_path=args.video,
+        #     num_frames=100,
+        #     run_name=f"yolov8n_{args.model}",
+        # )
+
+        # benchmark.run()
     else:
         parser.error("--video is required when not using --serve")
 

@@ -3,7 +3,7 @@
 static std::string current_model_path;
 static TFLiteDetector *detector = nullptr;
 
-int detect_frame(const char *model_path, uint8_t *frame_data, int width, int height, int channels, CDetection *out_detections, int max_detections)
+int detect_frame(const char *model_path, uint8_t *frame_data, int width, int height, int channels, CDetection *out_detections, int max_detections, float confidence_threshold)
 {
     if (current_model_path != model_path)
     {
@@ -14,7 +14,7 @@ int detect_frame(const char *model_path, uint8_t *frame_data, int width, int hei
 
     cv::Mat frame(height, width, CV_8UC3, frame_data);
 
-    std::vector<Detection> result = detector->detect(frame);
+    std::vector<Detection> result = detector->detect(frame, confidence_threshold);
 
     for (int i = 0; i < std::min((int)result.size(), max_detections); i++)
     {
@@ -24,5 +24,5 @@ int detect_frame(const char *model_path, uint8_t *frame_data, int width, int hei
         out_detections[i].track_id = result[i].track_id.value_or(-1);
     }
 
-    return result.size();
+    return std::min((int)result.size(), max_detections);
 }
