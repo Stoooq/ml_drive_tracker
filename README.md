@@ -46,7 +46,17 @@ Dashcam video (.mp4)
 
 ## Benchmark Results
 
-### Simulated ARM64 — arm64v8/Ubuntu 22.04 in Docker on Apple M-series (`--cpus 4 --memory 4g`, 100 frames)
+### Accuracy — COCO val2017 (5000 images)
+
+| Format | mAP@0.5 | mAP@0.5:0.95 |
+|---|---|---|
+| PyTorch FP32 | 0.519 | 0.368 |
+| ONNX FP32 | 0.474 | 0.326 |
+| TFLite INT8 C++ | 0.457 | 0.298 |
+
+> **Note:** PyTorch uses letterbox preprocessing (preserves aspect ratio). ONNX and TFLite use simple resize to 640×640, which accounts for the small accuracy gap relative to PyTorch. The TFLite INT8 drop vs ONNX FP32 (~3.6% mAP@0.5) is within the expected range for post-training quantization.
+
+### Latency & size — Simulated ARM64 — arm64v8/Ubuntu 22.04 in Docker on Apple M-series (`--cpus 4 --memory 4g`, 100 frames)
 
 | Format | Size | Latency (ms) | FPS |
 |---|---|---|---|
@@ -163,6 +173,5 @@ ml_drive_tracker/
 
 ## Future Work
 
-- mAP evaluation across all three formats to complete the accuracy-latency-size tradeoff table
 - SORT tracker from scratch (Kalman filter + Hungarian algorithm) as a drop-in replacement for ByteTrack
 - GradCAM / EigenCAM interpretability endpoint for visualizing model attention on dashcam frames
