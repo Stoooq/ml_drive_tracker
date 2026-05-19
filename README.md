@@ -1,10 +1,10 @@
-# ml_drive_tracker
+# ML Drive Tracker
 
 A real-time object detection and tracking system for dashcam footage. Runs YOLOv8n across three inference backends - PyTorch, ONNX, and TFLite INT8 - with ByteTrack object tracking and a FastAPI web service. Designed with edge deployment in mind: the same `.tflite` model runs in a self-contained C++ inference module using the TFLite C++ API.
 
 ## Demo
 
-<img width="640" height="360" alt="demo" src="https://github.com/user-attachments/assets/4c3f83c8-48ae-4817-bac7-c80a02a8facc" />
+<img width="480" height="270" alt="demo" src="https://github.com/user-attachments/assets/2e971bbf-8208-4e17-8014-7cec45e9f3ee" />
 
 ## Tech Stack
 
@@ -46,7 +46,7 @@ Dashcam video (.mp4)
 
 ## Benchmark Results
 
-### Accuracy — COCO val2017 (5000 images)
+### Accuracy - COCO val2017 (5000 images)
 
 | Format | mAP@0.5 | mAP@0.5:0.95 |
 |---|---|---|
@@ -56,7 +56,7 @@ Dashcam video (.mp4)
 
 > **Note:** PyTorch uses letterbox preprocessing (preserves aspect ratio). ONNX and TFLite use simple resize to 640×640, which accounts for the small accuracy gap relative to PyTorch. The TFLite INT8 drop vs ONNX FP32 (~3.6% mAP@0.5) is within the expected range for post-training quantization.
 
-### Latency & size — Simulated ARM64 — arm64v8/Ubuntu 22.04 in Docker on Apple M-series (`--cpus 4 --memory 4g`, 100 frames)
+### Latency & size - Simulated ARM64 - arm64v8/Ubuntu 22.04 in Docker on Apple M-series (`--cpus 4 --memory 4g`, 100 frames)
 
 | Format | Size | Latency (ms) | FPS |
 |---|---|---|---|
@@ -76,7 +76,7 @@ Dashcam video (.mp4)
 ### Installation
 
 ```bash
-git clone https://github.com/yourusername/ml_drive_tracker
+git clone https://github.com/Stoooq/ml_drive_tracker
 cd ml_drive_tracker
 uv sync
 ```
@@ -89,6 +89,9 @@ uv run python main.py --video storage/input/dashcam.mp4
 
 # ONNX inference
 uv run python main.py --video storage/input/dashcam.mp4 --model onnx
+
+# TFLite inference
+uv run python main.py --video storage/input/dashcam.mp4 --model tflite
 
 # Custom confidence threshold
 uv run python main.py --video storage/input/dashcam.mp4 --confidence 0.4
@@ -124,16 +127,6 @@ make mlflow-ui
 make export
 ```
 
-### Fine-tune on BDD100K
-
-```bash
-# Convert BDD100K annotations to YOLO format
-uv run python data/convert_bdd100k.py
-
-# Start fine-tuning
-uv run python ml/trainer.py
-```
-
 ## Project Structure
 
 ```
@@ -150,7 +143,8 @@ ml_drive_tracker/
 │   ├── config.py            # Pydantic settings
 │   └── types.py             # Detection dataclass
 ├── ml/
-│   ├── model.py             # ObjectDetector — PyTorch, ONNX, TFLite
+│   ├── model.py             # ObjectDetector - PyTorch, ONNX, TFLite
+│   ├── evaluate.py          # mAP evaluation on COCO val2017
 │   ├── exporter.py          # PyTorch → ONNX export
 │   ├── trainer.py           # YOLOTrainer for BDD100K fine-tuning
 │   └── constants.py         # COCO class names and indices
@@ -158,7 +152,7 @@ ml_drive_tracker/
 │   ├── convert_bdd100k.py   # BDD100K JSON → YOLO format converter
 │   └── bdd100k.yaml         # Dataset config for ultralytics
 ├── cpp/
-│   ├── CMakeLists.txt       # CMake build — FetchContent downloads TFLite from source
+│   ├── CMakeLists.txt       # CMake build - FetchContent downloads TFLite from source
 │   ├── detector.hpp/.cpp    # TFLiteDetector class: quantized input/output, NMS
 │   ├── detector_lib.cpp     # C ABI shared library (.so) for Python ctypes
 │   └── main.cpp             # Standalone C++ binary for direct inference
@@ -170,8 +164,3 @@ ml_drive_tracker/
 ├── Dockerfile
 └── docker-compose.yml
 ```
-
-## Future Work
-
-- SORT tracker from scratch (Kalman filter + Hungarian algorithm) as a drop-in replacement for ByteTrack
-- GradCAM / EigenCAM interpretability endpoint for visualizing model attention on dashcam frames
