@@ -4,8 +4,8 @@ from pathlib import Path
 import uvicorn
 
 from core.benchmark import Benchmark
-from ml.evaluate import evaluate_model
-from ml.model import ModelFormat
+from core.config import settings
+from ml.model import ModelFormat, ObjectDetector
 
 MODEL_PATHS = {
     "pytorch": "storage/models/yolov8n.pt",
@@ -17,8 +17,9 @@ MODEL_PATHS = {
 def confidence_value(value):
     try:
         value = float(value)
-    except ValueError:
-        raise argparse.ArgumentTypeError(f"invalid confidence value: {value}")
+    except ValueError as err:
+        msg = f"invalid confidence value: {value}"
+        raise argparse.ArgumentTypeError(msg) from err
 
     if not (0.0 <= value <= 1.0):
         raise argparse.ArgumentTypeError("confidence must be between 0.0 and 1.0")
@@ -61,7 +62,7 @@ def main():
     parser.add_argument(
         "-c",
         "--confidence",
-        default=0.5,
+        default=settings.confidence_threshold,
         type=confidence_value,
         help="detection confidence threshold between 0.0 and 1.0",
     )
@@ -78,6 +79,24 @@ def main():
         type=int,
         help="port for the web server, only used with --serve",
     )
+    parser.add_argument(
+        "-b",
+        "--benchmark",
+        action="store_true",
+        help="run benchmark and log latency, FPS, and mAP results to MLflow",
+    )
+    parser.add_argument(
+        "-i",
+        "--images",
+        default="datasets/coco/images/val2017",
+        help="path to COCO val2017 images directory, used with --benchmark",
+    )
+    parser.add_argument(
+        "-a",
+        "--annotations",
+        default="datasets/coco/annotations/instances_val2017.json",
+        help="path to COCO val2017 annotations JSON, used with --benchmark",
+    )
 
     args = parser.parse_args()
 
@@ -87,28 +106,33 @@ def main():
         if not Path(args.video).exists():
             parser.error(f"video file not found: {args.video}")
 
-        metrics = evaluate_model(
-            ModelFormat(args.model),
-            Path(MODEL_PATHS[args.model]),
-            images_dir=Path(
-                "/Users/miloszglowacki/Desktop/code/python/datasets/coco/images/val2017"
-            ),
-            annotations_path=Path(
-                "/Users/miloszglowacki/Desktop/code/python/datasets/coco/annotations/instances_val2017.json"
-            ),
+        detector = ObjectDetector(
+            model_format=ModelFormat(args.model),
+            model_path=Path(MODEL_PATHS[args.model]),
+            target_classes=settings.target_class_names,
+            bbox_colors=settings.bbox_colors,
+            confidence_threshold=args.confidence,
+            process_every_n_frames=settings.process_every_n_frames,
+            bbox_width=settings.bbox_width,
         )
 
-        print(metrics)
+        out = detector.detect_on_video(args.video, args.output)
+        print(out)
+    elif args.benchmark:
+        if not args.video:
+            parser.error("--video is required with --benchmark")
 
-        # benchmark = Benchmark(
-        #     model_format=ModelFormat(args.model),
-        #     model_path=Path(MODEL_PATHS[args.model]),
-        #     video_path=args.video,
-        #     num_frames=100,
-        #     run_name=f"yolov8n_{args.model}",
-        # )
+        benchmark = Benchmark(
+            model_format=ModelFormat(args.model),
+            model_path=Path(MODEL_PATHS[args.model]),
+            video_path=Path(args.video),
+            num_frames=100,
+            run_name=f"yolov8n_{args.model}",
+            images_path=Path(args.images),
+            annotations_path=Path(args.annotations),
+        )
 
-        # benchmark.run()
+        benchmark.run()
     else:
         parser.error("--video is required when not using --serve")
 

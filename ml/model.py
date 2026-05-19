@@ -14,6 +14,21 @@ from core.config import settings
 from core.types import CDetection, Detection
 from ml.constants import COCO_INDICES, COCO_NAMES
 
+PALETTE = [
+    (0, 0, 255),
+    (0, 255, 0),
+    (255, 0, 0),
+    (0, 255, 255),
+    (255, 0, 255),
+    (255, 165, 0),
+    (0, 128, 255),
+    (0, 255, 128),
+    (128, 0, 255),
+    (255, 128, 0),
+    (128, 255, 0),
+    (0, 128, 128),
+]
+
 
 class ModelFormat(Enum):
     PYTORCH = "pytorch"
@@ -104,7 +119,9 @@ class ObjectDetector:
         return result
 
     def _detect_onnx(
-        self, frame: NumPyArrayNumeric, tracking_enabled: bool = True
+        self,
+        frame: NumPyArrayNumeric,
+        tracking_enabled: bool = True,
     ) -> list[Detection]:
         original_height, original_width = frame.shape[:2]
 
@@ -245,11 +262,16 @@ class ObjectDetector:
     ) -> NumPyArrayNumeric:
         if detections:
             for detection in detections:
+                detection_color = (
+                    PALETTE[detection.track_id % len(PALETTE)]
+                    if detection.track_id is not None
+                    else (0, 255, 0)
+                )
                 cv2.rectangle(
                     frame,
                     (int(detection.bbox[0]), int(detection.bbox[1])),
                     (int(detection.bbox[2]), int(detection.bbox[3])),
-                    (0, 255, 0),
+                    detection_color,
                     self.bbox_width,
                 )
 
@@ -259,7 +281,7 @@ class ObjectDetector:
                     (int(detection.bbox[0]), int(detection.bbox[1]) - 10),
                     cv2.FONT_HERSHEY_SIMPLEX,
                     0.5,
-                    (0, 255, 0),
+                    detection_color,
                     self.bbox_width,
                 )
 
@@ -270,7 +292,7 @@ class ObjectDetector:
                         (int(detection.bbox[2]), int(detection.bbox[1]) - 10),
                         cv2.FONT_HERSHEY_SIMPLEX,
                         0.5,
-                        (0, 255, 0),
+                        detection_color,
                         self.bbox_width,
                     )
 

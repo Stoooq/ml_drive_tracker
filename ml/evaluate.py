@@ -16,7 +16,7 @@ def evaluate_pytorch(model_path: Path):
 
     metrics = model.val(data="coco.yaml")
 
-    return {"map50": metrics.box.map50, "map": metrics.box.map}
+    return {"map50": metrics.box.map50, "map5095": metrics.box.map}
 
 
 def evaluate_model(
@@ -67,7 +67,7 @@ def evaluate_model(
     evaluator.accumulate()
     evaluator.summarize()
 
-    return {"map50": evaluator.stats[1], "map": evaluator.stats[0]}
+    return {"map50": evaluator.stats[1], "map5095": evaluator.stats[0]}
 
 
 def _process_batch(
